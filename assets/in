@@ -1,0 +1,89 @@
+#!/bin/bash
+
+set -e
+
+exec 5>&1 # make stdout available as fd 5 for the result
+exec 1>&2 # redirect all output to stderr for logging
+
+main() {
+  log "\n\n--[IN]-------------------------"
+  targetDirectory $1
+  extractVersion
+  if notTrue params_skip_download; then
+    fetchResource
+  fi
+  emitResult
+}
+
+targetDirectory() {
+  target_dir=${1:-`echo $TMPDIR`}
+  log "\n--> target directory is: $target_dir"
+}
+
+extractVersion() {
+  log "\n--> extracting requested version..."
+  requestedVersion=$(jq -r '.version.version // ""' < $payload)
+  log "requested version: $requestedVersion"
+}
+
+fetchResource() {
+  set -o pipefail
+
+  if isTrue params_skip_download; then
+    log -p "\n${gray}--> Skipping fetching resource (param 'skip_download' is true) ...${reset}"
+  else
+    log -p "\n--> retrieving resource ..."
+    invokeEndpoint
+
+    # if we're being "strict", assert the versions match
+    if isTrue params_strict; then
+      log -p "\n--> verifying requested resource version ${blue}${requestedVersion}${reset} matches actual version just retrieved ${cyan}${version}${reset} ..."
+
+      if [ "$requestedVersion" != "$version" ]; then
+        log -p "${red}Versions do not match!${reset}"
+        log -p "${gray}Strict resource checking can be disabled by setting this step's param 'strict' to 'false' (or by omitting it all together since 'false' is the default).${reset}"
+        exit 1
+      else
+        log -p "${green}Versions match!${reset}"
+      fi
+    else
+      log -p "\n${gray}--> Skipping version verification.  If you want to strictly assert the retrieved version matches the version from check, set this step's param 'strict' to 'true'.${reset}"
+    fi
+
+    # copy the response headers and body to our target directory
+    cp ${response_headers} ${target_dir}/headers
+    cp ${response_body} ${target_dir}/body
+  fi
+}
+
+emitResult() {
+  # the version to emit
+  if isSet version; then
+    # return the current version of the resource we just fetched
+    emitVersion=$version
+  else
+    # unless we couldn't determine it, then fallback on the version requested by check
+    emitVersion=$requestedVersion
+  fi
+
+  jq  --arg version "$emitVersion" \
+      --arg method "$method" \
+      --arg url "$source_url" \
+      --arg status "$response_status" \
+      -n '{
+    "version": {
+      "version": $version
+    },
+    "metadata": [
+      { "name": "method", "value": $method },
+      { "name": "url", "value": $url },
+      { "name": "status", "value": $status }
+    ]
+  }' >&5
+}
+
+if [ "${BASH_SOURCE[0]}" == "${0}" ]; then
+  source $(dirname $0)/common
+  source $(dirname $0)/curlops
+  main "$@"
+fi

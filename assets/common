@@ -1,0 +1,150 @@
+#!/bin/bash
+
+# colors
+export esc=$(printf '\033')
+export gray=${esc}$(printf '[1;30m')
+export red=${esc}$(printf '[31m')
+export green=${esc}$(printf '[32m')
+export yellow=${esc}$(printf '[33m')
+export blue=${esc}$(printf '[34m')
+export cyan=${esc}$(printf '[36m')
+export white=${esc}$(printf '[37m')
+export reset=${esc}$(printf '[0m')
+
+# -------------------------------------------------------------------------------------
+# helper functions
+
+log() {
+    # accept args
+    while test $# -gt 0; do
+      case "$1" in
+          -p|--public)
+              shift
+              local PUBLIC=true
+              ;;
+          -j|--json)
+              shift
+              local JSON=true
+              ;;
+          *)
+              break
+              ;;
+      esac
+    done
+
+  # if the arg given is json, pretty print it
+  if [ "$JSON" = true ]; then
+    echo $1 | tr '\r\n' ' ' | jq -r '.' >> /tmp/resource.log
+  else
+    echo -e $1 >> /tmp/resource.log
+  fi
+
+  # also echo this to stdout so it shows up in concourse ui console
+  if [ "$PUBLIC" = true ]; then
+      if [ "$JSON" = true ]; then
+        echo $1 | tr '\r\n' ' ' | jq -r '.'
+      else
+        echo -e $1
+      fi
+  fi
+}
+
+isTrue() {
+  if notSet $1; then
+    return 1;
+  else
+    eval varVal=\$$1;
+    if ! [[ $varVal = true ]]; then
+        return 1;
+    fi
+  fi
+}
+
+notTrue() {
+  if ! notSet $1; then
+    eval varVal=\$$1;
+    if [[ $varVal = true ]]; then
+      return 1;
+    fi
+  fi
+}
+
+isSet() {
+  eval varVal=\$$1;
+  if [ -z "$varVal" ]; then return 1; fi
+  return 0;
+}
+
+notSet() {
+  eval varVal=\$$1;
+  if [ -z "$varVal" ]; then return 0; fi
+  return 1;
+}
+
+isSensitive() {
+    if isTrue params_sensitive; then return 0; fi
+    if isTrue source_sensitive && notSet params_sensitive; then return 0; fi
+    return 1;
+}
+
+trim() {
+  local var="$*"
+  # remove leading whitespace characters
+  var="${var#"${var%%[![:space:]]*}"}"
+  # remove trailing whitespace characters
+  var="${var%"${var##*[![:space:]]}"}"
+  printf '%s' "$var"
+}
+
+# usage: containsElement "candidate" "${the_array_to_test[@]}"
+containsElement () {
+  local e match="$1"
+  shift
+  for e; do [[ "$e" == "$match" ]] && return 0; done
+  return 1
+}
+
+# given a string, performs token replacement for the concourse build metadata environment variables
+replaceBuildMetadata() {
+  local str=$1
+  for var in BUILD_ID BUILD_NAME BUILD_JOB_NAME BUILD_PIPELINE_NAME BUILD_TEAM_NAME ATC_EXTERNAL_URL; do
+    str="${str//\$$var/${!var:-}}"
+    str="${str//\$\{$var\}/${!var:-}}"
+  done
+  echo "$str"
+}
+
+replaceBuildMetadataInFile() {
+  local source_file=$1
+  local target_file=${2:-$source_file}
+  local tmp="$(cat "$target_file")"
+  echo "$(replaceBuildMetadata "$tmp")" > "$target_file"
+}
+
+# -------------------------------------------------------------------------------------
+# write the request payload to a tmp file
+payload=$(mktemp /tmp/resource-in.XXXXXX)
+cat > $payload <&0
+
+
+# -------------------------------------------------------------------------------------
+# slurp some of the config into variables to make them easily accessible by our scripts
+
+# source config
+source_url=$(jq -r '.source.url // ""' < $payload)
+source_username=$(jq -r '.source.username // ""' < $payload)
+source_password=$(jq -r '.source.password // ""' < $payload)
+source_insecure=$(jq -r '.source.insecure // false' < $payload)
+source_method=$(jq -r '.source.method // ""' < $payload)
+source_sensitive=$(jq -r '.source.sensitive | select(.!=null)' < $payload)
+source_version_header=$(jq -r '.source.version.header // ""' < $payload)
+source_version_jq=$(jq -r '.source.version.jq // ""' < $payload)
+
+# params config
+params_method=$(jq -r '.params.method // ""' < $payload)
+params_sensitive=$(jq -r '.params.sensitive  | select(.!=null)' < $payload)
+params_strict=$(jq -r '.params.strict // false' < $payload)
+params_text=$(jq -r '.params.text // ""' < $payload)
+params_file=$(jq -r '.params.file // ""' < $payload)
+
+params_skip_download=$(jq -r '.params.skip_download // false' < $payload)

@@ -1,0 +1,34 @@
+= Releases
+\ifdef::env-github[]
+:tip-caption: :bulb:
+:note-caption: :information_source:
+:important-caption: :heavy_exclamation_mark:
+:caution-caption: :fire:
+:warning-caption: :warning:
+\endif::[]
+
+Images are built by our https://github.com/jgriff/http-resource/actions[GitHub Actions]
+and released to https://hub.docker.com/r/jgriff/http-resource/tags[Docker Hub] using the
+conventions below.
+
+== `latest`
+
+The `latest` image tag always represents the latest state of our `master` branch.
+
+It is built and pushed to Docker Hub by our GitHub Action link:.github/workflows/latest.yml[`latest.yml`] whenever `master` is updated.
+
+
+== Git Release Tags
+
+All versioned releases are performed by our GitHub Action link:.github/workflows/release.yml[`release.yml`] whenever a new `v*` tag is created.
+
+NOTE: The leading `v` will be stripped when creating the Docker tag.
+
+
+Each release ships 2 image tags.  One is the full `major.minor.patch` tag.
+The second is just the `major.minor` portion of the tag, which is treated as a "moving" tag along the `minor` release line.
+
+For example, tagging the repo with `v1.2.3` will build and publish the following Docker images:
+
+* `jgriff/http-resource:1.2.3` - new tag
+* `jgriff/http-resource:1.2` - update/move existing tag forward

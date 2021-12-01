@@ -1,0 +1,8 @@
+{
+  "source": {
+    "headers": {
+      "Accept": "application/json",
+      "Source-Header": "source-value"
+    }
+  }
+}

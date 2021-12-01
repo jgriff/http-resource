@@ -1,0 +1,4 @@
+HTTP/1.1 400 BAD REQUEST
+Content-Type: application/json
+Some-Header: some-header-value
+Version: 1

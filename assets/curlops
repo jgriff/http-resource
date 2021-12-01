@@ -1,0 +1,122 @@
+#!/bin/bash
+
+# -------------------------------------------------------------------------------------
+# curl functions - expects 'common' to be already sourced
+
+invokeEndpoint() {
+  createTempFiles
+  invokeCurl
+  echoResponse
+  captureResponseStatus
+  assertGoodResponse
+  determineVersion
+}
+
+createTempFiles() {
+  # this facilitates our ability to test, since our tests will create/populate these files
+  if notSet request_headers; then
+    request_headers=$(mktemp /tmp/request_headers.XXXXXX)
+    log "created temp file for request_headers at $request_headers"
+  fi
+
+  if notSet response_headers; then
+    response_headers=$(mktemp /tmp/response_headers.XXXXXX)
+    log "created temp file for response_headers at $response_headers"
+  fi
+
+  if notSet response_body; then
+    response_body=$(mktemp /tmp/response_body.XXXXXX)
+    log "created temp file for response_body at $response_body"
+  fi
+}
+
+invokeCurl() {
+  set -o pipefail
+
+  # http method to use (params has precedence)
+  if isSet params_method; then
+    method=$params_method
+  elif isSet source_method; then
+    method=$source_method
+  else
+    method=${default_method:-GET}
+  fi
+
+  # headers - write them all to our temp file
+  jq -r '.source.headers, .params.headers | select(. != null) | to_entries[] | "\(.key): \(.value)"' < $payload > $request_headers
+  replaceBuildMetadataInFile $request_headers
+  expanded_headers=("-H" "@${request_headers}")
+
+  # data
+  expanded_data=()
+  if isSet params_file && isSet params_text; then
+    log -p "${red}Only one of 'file' or 'text' can be set${reset}"
+    exit 1
+  elif isSet params_file; then
+    replaceBuildMetadataInFile "$params_file"
+    expanded_data+=("-d" "@$params_file")
+  elif isSet params_text; then
+    data_text=$(replaceBuildMetadata "$params_text")
+    expanded_data+=("-d" "$data_text")
+  fi
+
+  # other options (auth, ssl, etc)
+  expanded_options=()
+
+  if isSet source_username && isSet source_password; then
+    expanded_options+=("-u" "$source_username:$source_password")
+  fi
+
+  if isTrue source_insecure; then
+    expanded_options+=("--insecure")
+  fi
+
+  log -p "\n--> invoking ${yellow}${method}${reset} ${blue}${source_url}${reset} ..."
+  curl -s -X ${method} "${expanded_headers[@]}" "${expanded_data[@]}" "${expanded_options[@]}" -D ${response_headers} ${source_url} > $response_body || exit $1
+}
+
+echoResponse() {
+  if ! isSensitive; then
+    cat ${response_headers}
+    cat ${response_body}
+  fi
+}
+
+captureResponseStatus() {
+  unset response_status
+  response_status=$(head -n 1 $response_headers)
+}
+
+assertGoodResponse() {
+  if [[ "$response_status" =~ .*[4-5]{1}[0-9]{2}.* ]]; then
+    log -p "\nGot back bad response status: ${red}${response_status}${reset}\n"
+    exit 1
+  fi
+}
+
+determineVersion() {
+  unset version
+
+  # first try the jq query (if configured)
+  if isSet source_version_jq; then
+    log -p "\n--> attempting to determine version from response body using jq query: ${blue}${source_version_jq}${reset}"
+    version=$(cat $response_body | jq -r "$source_version_jq // \"\"")
+    version=$(trim $version)
+  fi
+
+  # if we haven't figured out the version yet, try the header (if configured)
+  if notSet version  && isSet source_version_header; then
+    log -p "\n--> attempting to determine version from response header: ${blue}${source_version_header}${reset}"
+    version=$(cat $response_headers | sed -n -e "/^$source_version_header:/p" | cut -d':' -f2-)
+    version=$(trim $version)
+  fi
+
+  # if we still haven't figure out the version, calculate a sha-1 digest of the response body
+  if notSet version; then
+    log -p "\n--> calculating the ${blue}sha-1 digest${reset} of the response body to use as the version"
+    version=$(sha1sum $response_body | cut -d' ' -f1)
+    version=$(trim $version)
+  fi
+
+  log -p "\n--> version is:  ${cyan}${version}${reset}"
+}

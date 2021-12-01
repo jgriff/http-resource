@@ -1,0 +1,14 @@
+{
+  "source": {
+    "headers": {
+      "Accept": "application/json",
+      "Source-Header": "source-value"
+    }
+  },
+  "params": {
+    "headers": {
+      "Accept": "application/octet-stream",
+      "Param-Header": "param-value"
+    }
+  }
+}

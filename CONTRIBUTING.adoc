@@ -1,0 +1,63 @@
+= Contributing
+:toc:
+:toc-title:
+:toc-placement!:
+\ifdef::env-github[]
+:tip-caption: :bulb:
+:note-caption: :information_source:
+:important-caption: :heavy_exclamation_mark:
+:caution-caption: :fire:
+:warning-caption: :warning:
+\endif::[]
+:image-name: jgriff/http-resource
+
+toc::[]
+
+== Issues and Pull Requests
+
+* For *small* changes or quick fixes, a simple https://github.com/jgriff/{image-name}/pulls[pull request] is sufficient.
+
+* For *non-trivial* changes or bug reports, please file an https://github.com/jgriff/{image-name}/issues[issue] _before_ submitting a pull request.
+
+* For *substantial* changes, or to discuss a feature request, prefix your issue with "RFC:" (Request For Comment) and tag it with the label https://github.com/jgriff/{image-name}/labels/rfc[`rfc`].
+
+== Development Builds
+
+For local dev builds, the term `dev` is used in place of the link:RELEASES.adoc[release tag] for the final image tag.
+
+There are `make` targets for each `build` and `test` variant.
+
+|===
+|Make Target |Description
+
+|`build`
+|Builds local image tagged as: `<image>:dev`
+
+|`test`
+|Runs unit tests against image tag: `<image>:dev`
+
+|`build_latest`
+|Builds local image tagged as: `<image>:latest`
+
+|`test_latest`
+|Runs unit tests against image: `<image>:latest`
+|===
+
+where:
+
+* `<image>` defaults to `{image-name}`
+
+
+=== Overriding the Image Name
+
+Sometimes, you may need to push your dev images to another (private) registry for integration testing or other uses.  In those scenarios, you can simply pass an `IMAGE` argument to `make` to set it to your custom image name (without the tag).
+
+[source,bash,subs="attributes"]
+----
+make build IMAGE=my-registry/{image-name}
+----
+Works with any target, such as `test`:
+[source,bash,subs="attributes"]
+----
+make test IMAGE=my-registry/{image-name}
+----

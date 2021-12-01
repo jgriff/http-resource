@@ -1,0 +1,6 @@
+{
+  "params": {
+    "file": "some-dir/some-file.json",
+    "text": "some-data"
+  }
+}

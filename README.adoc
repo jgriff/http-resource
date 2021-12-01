@@ -1,0 +1,258 @@
+= http-resource
+:toc:
+:toc-placement!:
+\ifdef::env-github[]
+:tip-caption: :bulb:
+:note-caption: :information_source:
+:important-caption: :heavy_exclamation_mark:
+:caution-caption: :fire:
+:warning-caption: :warning:
+\endif::[]
+
+image::https://img.shields.io/docker/pulls/jgriff/http-resource[]
+
+A Concourse https://resource-types.concourse-ci.org/[resource] for interacting with HTTP REST APIs.
+
+toc::[]
+
+[#config-source]
+== Source Configuration
+
+* `url`: _Required_. The HTTP URL, e.g. `"https://some-server:8080/some/endpoint"`.
+* `username`: _Optional_. Username for accessing an authenticated url.
+* `password`: _Optional_. Password for accessing an authenticated url.
+* `insecure`: _Optional_. Set to `true` to ignore SSL errors.  Defaults to `false`.
+* `method`: _Optional_. HTTP method to use.  When not specified here, this defaults to `GET` for `in` and `POST` for `out`.  Can also be overridden as a param to each `get` or `put` step.
+* `headers`: _Optional_. Map of HTTP headers to include in the invocation.  Defaults to empty (none).  Additional headers can be specified as a params to each `get` or `put` step.
++
+[source,yaml]
+----
+source:
+  headers:
+    Accept: application/json
+----
+* `version`: _Optional_. How to determine the resource's version.  Default is to calculate the `sha-1` digest of the response body.  Choose one of:
+** `header`: A response header to use as the version.
++
+[source,yaml]
+----
+source:
+  version:
+    header: Last-Modified
+----
+** `jq`: A `jq` expression to select a value from the response body as the version.
++
+[source,yaml]
+----
+source:
+  version:
+    jq: '.some.path.in.the.response.body'
+----
+If none of the above are configured, then a `sha-1` digest of the response body is used for the version of the resource.
+* `sensitive`: _Optional._  If `true`, the responses from the endpoint will be considered sensitive and not show up in the logs or Concourse UI.  Can be overridden as a param to each `get` or `put` step. Default is `false`.
+
+== Behavior
+
+=== `check`: Check for new resource version
+
+Invokes the `url` and determines the current version according to the source `version` configuration.
+
+=== `in`:  Invoke the `url`, capturing the response
+
+Invokes the `url` and:
+
+* writes the response headers to a file named `headers`.
+* writes the response body to a file named `body`.
+
+==== Parameters
+
+* `strict`: _Optional._  Whether to strictly assert the version retrieved matches the version requested (from `check`).  Defaults to `false`.  If set to `true` and the versions to do not match, the step will fail.
++
+TIP: Not all endpoints may be able to provide an idempotent version, this configuration lets you decide how you want to handle those scenarios.
+
+=== `out`: Invoke the `url`, (optionally) sending a payload body
+
+General purpose invocation of the `url`, optionally sending a request body.
+
+[source,yaml]
+----
+  plan:
+    - put: my-http-resource
+      params:
+        text: "Job $BUILD_PIPELINE_NAME/$BUILD_JOB_NAME completed!"
+----
+
+==== Parameters
+
+* `file`: _Optional._ File containing content to be sent as the body of the request.  Cannot be specified at the same time as `text`.
+* `text`: _Optional._ Inline text to be sent as the body of the request.  Cannot be specified at the same time as `file`.
+
+TIP: Concourse https://concourse-ci.org/implementing-resource-types.html#resource-metadata[build metadata variables] can be used in both `text` and `file` content, and will be automatically substituted during the `put` step.
+
+==== Implicit Get Parameters
+
+* `skip_download`: _Optional._  Supports skipping Concourse's implicit `get` following a `put` (see https://concourse-ci.org/put-step.html#schema.put.get_params[here]).
+This can be handy when the endpoint you are invoking doesn't support read operations (ie, https://httpbin.org/post).
+Default is `false`.
++
+[source,yaml]
+----
+  plan:
+    - put: my-http-resource
+      get_params:
+        skip_download: true
+----
+
+== Examples
+
+=== `get` a resource
+
+Issue `GET` requests to https://httpbin.org/get, and display the response `headers` and `body` we get back.
+
+[source,yaml]
+----
+resource_types:
+  - name: http-resource
+    type: docker-image
+    source:
+      repository: jgriff/http-resource
+
+resources:
+  - name: http-bin
+    type: http-resource
+    source:
+      url: https://httpbin.org/get
+
+jobs:
+  - name: get-something
+    plan:
+      - get: http-bin
+        trigger: true
+      - task: take-a-look
+        config:
+          platform: linux
+          image_resource:
+            type: registry-image
+            source: { repository: busybox }
+          inputs:
+            - name: http-bin
+          run:
+            path: cat
+            args: ["http-bin/headers", "http-bin/body"]
+----
+
+=== `get` and `put`
+
+`GET` a file, and `POST` it to another endpoint.
+
+[source,yaml]
+----
+resource_types:
+  - name: http-resource
+    type: docker-image
+    source:
+      repository: jgriff/http-resource
+
+resources:
+  - name: http-bin-get
+    type: http-resource
+    source:
+      url: https://httpbin.org/get
+  - name: http-bin-post
+    type: http-resource
+    source:
+      url: https://httpbin.org/post
+
+jobs:
+  - name: post-something
+    plan:
+      - get: http-bin-get
+        trigger: true
+      - put: http-bin-post
+        params:
+          file: http-bin-get/body           <1>
+        get_params:
+          skip_download: true               <2>
+----
+<1> post the file content that was retrieved in the `get` step.
+<2> skip the implicit `get` after a `put` (since issuing a `GET` to `https://httpbin.org/post` returns a `405 METHOD NOT ALLOWED` and will fail our pipeline).
+
+=== Version Strategies
+
+By default, a `sha-1` digest of the entire response body is used as the version of the resource.
+
+Below are examples of other strategies for determining the version (see xref:#config-source[]).
+
+NOTE: The examples below are not practical, just demonstrating the mechanics and working with the responses that `httpbin.org` provides.
+
+==== From Response Header
+
+Use the value of a particular response header for the version of the resource.
+
+[source,yaml]
+----
+resources:
+  - name: http-bin
+    type: http-resource
+    source:
+      url: https://httpbin.org/get
+      version:
+        header: date
+
+jobs:
+  - name: get-something
+    plan:
+      - get: http-bin
+        trigger: true
+----
+
+==== From Response Body
+
+Use a `jq` query into the response body to select the version of the resource.
+
+[source,yaml]
+----
+resources:
+  - name: http-bin
+    type: http-resource
+    source:
+      url: https://httpbin.org/get
+      version:
+        jq: .headers."X-Amzn-Trace-Id"
+
+jobs:
+  - name: get-something
+    plan:
+      - get: http-bin
+        trigger: true
+----
+
+==== Multiple Strategies and Fallback Precedence
+
+You can configure any/all of the `version` strategies together, and they will be attempted in the following order:
+
+. `jq`
+. `header`
+
+If none of them can produce a non-empty string, then the `sha-1` digest is used.
+
+The pipeline below demonstrates attempting all of the version strategies,
+and ultimately generating a `sha-1` digest.
+
+[source,yaml]
+----
+resources:
+  - name: http-bin
+    type: http-resource
+    source:
+      url: https://httpbin.org/get
+      version:
+        header: Does-Not-Exist
+        jq: .does.not.exist
+
+jobs:
+  - name: get-something
+    plan:
+      - get: http-bin
+        trigger: true
+----
