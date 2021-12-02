@@ -147,4 +147,4 @@ params_strict=$(jq -r '.params.strict // false' < $payload)
 params_text=$(jq -r '.params.text // ""' < $payload)
 params_file=$(jq -r '.params.file // ""' < $payload)
 
-params_skip_download=$(jq -r '.params.skip_download // false' < $payload)
+params_skip=$(jq -r '.params.skip // false' < $payload)

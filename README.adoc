@@ -69,6 +69,22 @@ Invokes the `url` and:
 * `strict`: _Optional._  Whether to strictly assert the version retrieved matches the version requested (from `check`).  Defaults to `false`.  If set to `true` and the versions to do not match, the step will fail.
 +
 TIP: Not all endpoints may be able to provide an idempotent version, this configuration lets you decide how you want to handle those scenarios.
+* `skip`: _Optional._ Skip invoking the endpoint.  Defaults to `false`.
+
+[TIP]
+====
+The primary use for this is as a https://concourse-ci.org/put-step.html#schema.put.get_params[`get_params`] to support skipping Concourse's implicit `get` that follows every `put`.
+
+[source,yaml]
+----
+  plan:
+    - put: my-http-resource
+      get_params:
+        skip: true
+----
+
+This can be needed when the endpoint you are invoking (in a `put`) doesn't support read operations (such as our exemplar https://httpbin.org/post).
+====
 
 === `out`: Invoke the `url`, (optionally) sending a payload body
 
@@ -88,20 +104,6 @@ General purpose invocation of the `url`, optionally sending a request body.
 * `text`: _Optional._ Inline text to be sent as the body of the request.  Cannot be specified at the same time as `file`.
 
 TIP: Concourse https://concourse-ci.org/implementing-resource-types.html#resource-metadata[build metadata variables] can be used in both `text` and `file` content, and will be automatically substituted during the `put` step.
-
-==== Implicit Get Parameters
-
-* `skip_download`: _Optional._  Supports skipping Concourse's implicit `get` following a `put` (see https://concourse-ci.org/put-step.html#schema.put.get_params[here]).
-This can be handy when the endpoint you are invoking doesn't support read operations (ie, https://httpbin.org/post).
-Default is `false`.
-+
-[source,yaml]
-----
-  plan:
-    - put: my-http-resource
-      get_params:
-        skip_download: true
-----
 
 == Examples
 
@@ -170,9 +172,9 @@ jobs:
         trigger: true
       - put: http-bin-post
         params:
-          file: http-bin-get/body           <1>
+          file: http-bin-get/body   <1>
         get_params:
-          skip_download: true               <2>
+          skip: true                <2>
 ----
 <1> post the file content that was retrieved in the `get` step.
 <2> skip the implicit `get` after a `put` (since issuing a `GET` to `https://httpbin.org/post` returns a `405 METHOD NOT ALLOWED` and will fail our pipeline).

@@ -197,6 +197,17 @@ teardown() {
     assert_failure
 }
 
+@test "[in] skips fetching resource if param 'skip' is 'true'" {
+    source_in "stdin-source-params-skip-true"
+
+    output=$(extractVersion && fetchResource 5>&1)
+
+    # and echo back the same version it was given
+    assert_equal "$(jq -r '.version.version ' <<< "$output")" "some-version-from-check"
+    # and the status in the metadata indicates it was skipped
+    assert_equal "$(jq -r '.metadata[] | select(.name == "status") | .value ' <<< "$output")" "skipped"
+}
+
 @test "[in] e2e in" {
     source_in
 

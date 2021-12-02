@@ -9,9 +9,7 @@ main() {
   log "\n\n--[IN]-------------------------"
   targetDirectory $1
   extractVersion
-  if notTrue params_skip_download; then
-    fetchResource
-  fi
+  fetchResource
   emitResult
 }
 
@@ -29,31 +27,34 @@ extractVersion() {
 fetchResource() {
   set -o pipefail
 
-  if isTrue params_skip_download; then
-    log -p "\n${gray}--> Skipping fetching resource (param 'skip_download' is true) ...${reset}"
-  else
-    log -p "\n--> retrieving resource ..."
-    invokeEndpoint
-
-    # if we're being "strict", assert the versions match
-    if isTrue params_strict; then
-      log -p "\n--> verifying requested resource version ${blue}${requestedVersion}${reset} matches actual version just retrieved ${cyan}${version}${reset} ..."
-
-      if [ "$requestedVersion" != "$version" ]; then
-        log -p "${red}Versions do not match!${reset}"
-        log -p "${gray}Strict resource checking can be disabled by setting this step's param 'strict' to 'false' (or by omitting it all together since 'false' is the default).${reset}"
-        exit 1
-      else
-        log -p "${green}Versions match!${reset}"
-      fi
-    else
-      log -p "\n${gray}--> Skipping version verification.  If you want to strictly assert the retrieved version matches the version from check, set this step's param 'strict' to 'true'.${reset}"
-    fi
-
-    # copy the response headers and body to our target directory
-    cp ${response_headers} ${target_dir}/headers
-    cp ${response_body} ${target_dir}/body
+  if isTrue params_skip; then
+    log -p "\n${gray}--> Skipping resource retrieval (param 'skip' is true) ...${reset}"
+    response_status="skipped"
+    emitResult
+    exit 0
   fi
+
+  log -p "\n--> retrieving resource ..."
+  invokeEndpoint
+
+  # if we're being "strict", assert the versions match
+  if isTrue params_strict; then
+    log -p "\n--> verifying requested resource version ${blue}${requestedVersion}${reset} matches actual version just retrieved ${cyan}${version}${reset} ..."
+
+    if [ "$requestedVersion" != "$version" ]; then
+      log -p "${red}Versions do not match!${reset}"
+      log -p "${gray}Strict resource checking can be disabled by setting this step's param 'strict' to 'false' (or by omitting it all together since 'false' is the default).${reset}"
+      exit 1
+    else
+      log -p "${green}Versions match!${reset}"
+    fi
+  else
+    log -p "\n${gray}--> Skipping version verification.  If you want to strictly assert the retrieved version matches the version from check, set this step's param 'strict' to 'true'.${reset}"
+  fi
+
+  # copy the response headers and body to our target directory
+  cp ${response_headers} ${target_dir}/headers
+  cp ${response_body} ${target_dir}/body
 }
 
 emitResult() {
