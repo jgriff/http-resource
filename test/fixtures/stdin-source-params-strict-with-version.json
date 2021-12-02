@@ -5,5 +5,7 @@
   "params": {
     "strict": true
   },
-  "version": "some-version-from-check"
+  "version": {
+    "version": "some-version-from-check"
+  }
 }
