@@ -139,6 +139,7 @@ source_method=$(jq -r '.source.method // ""' < $payload)
 source_sensitive=$(jq -r '.source.sensitive | select(.!=null)' < $payload)
 source_version_header=$(jq -r '.source.version.header // ""' < $payload)
 source_version_jq=$(jq -r '.source.version.jq // ""' < $payload)
+source_out_only=$(jq -r '.source.out_only // false' < $payload)
 
 # params config
 params_method=$(jq -r '.params.method // ""' < $payload)
@@ -146,5 +147,3 @@ params_sensitive=$(jq -r '.params.sensitive  | select(.!=null)' < $payload)
 params_strict=$(jq -r '.params.strict // false' < $payload)
 params_text=$(jq -r '.params.text // ""' < $payload)
 params_file=$(jq -r '.params.file // ""' < $payload)
-
-params_skip=$(jq -r '.params.skip // false' < $payload)

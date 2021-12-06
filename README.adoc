@@ -49,6 +49,8 @@ source:
     jq: '.some.path.in.the.response.body'
 ----
 If none of the above are configured, then a `sha-1` digest of the response body is used for the version of the resource.
+* `out_only`: _Optional._  Disables the `check` and `in` operations, turning them into no-ops (including the implicit `get` after each `put`).
+Relevant for scenarios where you are _only_ using `put` operations, or for any other reason you do not want to regularly check the endpoint.  Default is `false`.
 * `sensitive`: _Optional._  If `true`, the responses from the endpoint will be considered sensitive and not show up in the logs or Concourse UI.  Can be overridden as a param to each `get` or `put` step. Default is `false`.
 
 == Behavior
@@ -57,6 +59,8 @@ If none of the above are configured, then a `sha-1` digest of the response body 
 
 Invokes the `url` and determines the current version according to the source `version` configuration.
 
+NOTE: No-op if source param `out_only` is `true`.
+
 === `in`:  Invoke the `url`, capturing the response
 
 Invokes the `url` and:
@@ -64,27 +68,14 @@ Invokes the `url` and:
 * writes the response headers to a file named `headers`.
 * writes the response body to a file named `body`.
 
+NOTE: No-op if source param `out_only` is `true`.
+
 ==== Parameters
 
 * `strict`: _Optional._  Whether to strictly assert the version retrieved matches the version requested (from `check`).  Defaults to `false`.  If set to `true` and the versions to do not match, the step will fail.
 +
 TIP: Not all endpoints may be able to provide an idempotent version, this configuration lets you decide how you want to handle those scenarios.
-* `skip`: _Optional._ Skip invoking the endpoint.  Defaults to `false`.
 
-[TIP]
-====
-The primary use for this is as a https://concourse-ci.org/put-step.html#schema.put.get_params[`get_params`] to support skipping Concourse's implicit `get` that follows every `put`.
-
-[source,yaml]
-----
-  plan:
-    - put: my-http-resource
-      get_params:
-        skip: true
-----
-
-This can be needed when the endpoint you are invoking (in a `put`) doesn't support read operations (such as our exemplar https://httpbin.org/post).
-====
 
 === `out`: Invoke the `url`, (optionally) sending a payload body
 
@@ -164,6 +155,7 @@ resources:
     type: http-resource
     source:
       url: https://httpbin.org/post
+      out_only: true                  <2>
 
 jobs:
   - name: post-something
@@ -172,12 +164,10 @@ jobs:
         trigger: true
       - put: http-bin-post
         params:
-          file: http-bin-get/body   <1>
-        get_params:
-          skip: true                <2>
+          file: http-bin-get/body     <1>
 ----
 <1> post the file content that was retrieved in the `get` step.
-<2> skip the implicit `get` after a `put` (since issuing a `GET` to `https://httpbin.org/post` returns a `405 METHOD NOT ALLOWED` and will fail our pipeline).
+<2> disable the implicit `get` after a `put` (since issuing a `GET` to `https://httpbin.org/post` returns a `405 METHOD NOT ALLOWED` and will fail our pipeline).
 
 === Version Strategies
 

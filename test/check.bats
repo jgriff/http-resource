@@ -167,10 +167,17 @@ teardown() {
 
     output=$(main 5>&1 1>&2)
 
-    cat $response_body
-
     # should emit 1 version
     assert_equal $(jq length <<< "$output") 1
     assert_equal "$(jq -r '.[0] | length' <<< "$output")" '1'
     assert_equal "$(jq -r '.[0].version' <<< "$output")" '1'
+}
+
+@test "[check] no-op if source config 'out_only' is 'true'" {
+    source_check stdin-source-out_only-true
+
+    output=$(main 5>&1 1>&2)
+
+    # should emit an empty version list
+    assert_equal $(jq length <<< "$output") 0
 }
