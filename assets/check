@@ -7,8 +7,17 @@ exec 1>&2 # redirect all output to stderr for logging
 
 main() {
   log "\n\n--[CHECK]-------------------------"
+  exitIfNoop
   checkResource
   emitResult
+}
+
+exitIfNoop() {
+  if isTrue source_out_only; then
+    log -p "\n${gray}--> no-op (source config 'out_only' is true)${reset}"
+    jq  -n '[]' >&5
+    exit 0
+  fi
 }
 
 checkResource() {

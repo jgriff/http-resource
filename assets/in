@@ -7,10 +7,29 @@ exec 1>&2 # redirect all output to stderr for logging
 
 main() {
   log "\n\n--[IN]-------------------------"
+  exitIfNoop
   targetDirectory $1
   extractVersion
   fetchResource
   emitResult
+}
+
+exitIfNoop() {
+  if isTrue source_out_only; then
+    log -p "\n${gray}--> no-op (source config 'out_only' is true)${reset}"
+    jq  --arg version "$(jq -r '.version.version // ""' < $payload)" \
+        --arg url "$source_url" \
+        -n '{
+      "version": {
+        "version": $version
+      },
+      "metadata": [
+        { "name": "url", "value": $url },
+        { "name": "status", "value": "no-op" }
+      ]
+    }' >&5
+    exit 0
+  fi
 }
 
 targetDirectory() {
@@ -26,13 +45,6 @@ extractVersion() {
 
 fetchResource() {
   set -o pipefail
-
-  if isTrue params_skip; then
-    log -p "\n${gray}--> Skipping resource retrieval (param 'skip' is true) ...${reset}"
-    response_status="skipped"
-    emitResult
-    exit 0
-  fi
 
   log -p "\n--> retrieving resource ..."
   invokeEndpoint
