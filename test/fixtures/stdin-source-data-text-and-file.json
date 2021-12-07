@@ -1,0 +1,6 @@
+{
+  "source": {
+    "file": "some-dir/some-file.json",
+    "text": "some-source-data"
+  }
+}

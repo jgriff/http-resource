@@ -120,7 +120,18 @@ teardown() {
     assert_equal $(cat $request_headers | sed -n -e "/^Param-Header:/p" | cut -d':' -f2-) 'param-value'
 }
 
-@test "[out] invokes endpoint with data text" {
+@test "[out] invokes endpoint with source data text" {
+    source_out "stdin-source-data-text"
+
+    target_dir=$BATS_TEST_TMPDIR
+
+    putResource
+
+    assert_equal "${expanded_data[0]}" "-d"
+    assert_equal "${expanded_data[1]}" "some-source-data"
+}
+
+@test "[out] invokes endpoint with param data text" {
     source_out "stdin-source-params-data-text"
 
     target_dir=$BATS_TEST_TMPDIR
@@ -128,7 +139,36 @@ teardown() {
     putResource
 
     assert_equal "${expanded_data[0]}" "-d"
-    assert_equal "${expanded_data[1]}" "some-data"
+    assert_equal "${expanded_data[1]}" "some-param-data"
+}
+
+@test "[out] invokes endpoint with param data text (overrides source data)" {
+    source_out "stdin-source-params-data-text-override"
+
+    target_dir=$BATS_TEST_TMPDIR
+
+    putResource
+
+    assert_equal "${expanded_data[0]}" "-d"
+    assert_equal "${expanded_data[1]}" "some-param-data"
+}
+
+@test "[out] fails if both 'text' and 'file' params are configured" {
+    source_out "stdin-source-params-data-text-and-file"
+
+    run putResource
+
+    # it should fail
+    assert_failure
+}
+
+@test "[out] fails if both 'text' and 'file' source are configured" {
+    source_out "stdin-source-data-text-and-file"
+
+    run putResource
+
+    # it should fail
+    assert_failure
 }
 
 @test "[out] emits the version" {
@@ -183,15 +223,6 @@ teardown() {
     source_out
 
     echo "HTTP/1.1 500 INTERNAL SERVER ERROR" > $response_headers
-
-    run putResource
-
-    # it should fail
-    assert_failure
-}
-
-@test "[out] fails if both 'text' and 'file' are configured" {
-    source_out "stdin-source-params-data-file-and-text"
 
     run putResource
 
