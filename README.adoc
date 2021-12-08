@@ -31,6 +31,11 @@ source:
   headers:
     Accept: application/json
 ----
+* `file`: _Optional._ File containing content to be sent as the body of the request.  Cannot be specified at the same time as `text`.  Can be overridden as a parm to each `get` or `put` step.
+* `text`: _Optional._ Inline text to be sent as the body of the request.  Cannot be specified at the same time as `file`.  Can be overridden as a parm to each `get` or `put` step.
++
+TIP: Concourse https://concourse-ci.org/implementing-resource-types.html#resource-metadata[build metadata variables] can be used in both `file` and `text` content, and will be automatically substituted in `get` and `put` steps.
+
 * `version`: _Optional_. How to determine the resource's version.  Default is to calculate the `sha-1` digest of the response body.  Choose one of:
 ** `header`: A response header to use as the version.
 +
@@ -86,15 +91,12 @@ General purpose invocation of the `url`, optionally sending a request body.
   plan:
     - put: my-http-resource
       params:
-        text: "Job $BUILD_PIPELINE_NAME/$BUILD_JOB_NAME completed!"
+        text: |
+          The build had a result. Check it out at:
+          $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
+          or at:
+          $ATC_EXTERNAL_URL/builds/$BUILD_ID
 ----
-
-==== Parameters
-
-* `file`: _Optional._ File containing content to be sent as the body of the request.  Cannot be specified at the same time as `text`.
-* `text`: _Optional._ Inline text to be sent as the body of the request.  Cannot be specified at the same time as `file`.
-
-TIP: Concourse https://concourse-ci.org/implementing-resource-types.html#resource-metadata[build metadata variables] can be used in both `text` and `file` content, and will be automatically substituted during the `put` step.
 
 == Examples
 

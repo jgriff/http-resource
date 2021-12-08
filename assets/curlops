@@ -50,14 +50,21 @@ invokeCurl() {
   # data
   expanded_data=()
   if isSet params_file && isSet params_text; then
-    log -p "${red}Only one of 'file' or 'text' can be set${reset}"
+    log -p "${red}Only one of params 'file' or 'text' can be set${reset}."
+    exit 1
+  elif isSet source_file && isSet source_text; then
+    log -p "${red}Only one of source 'file' or 'text' can be set${reset}."
     exit 1
   elif isSet params_file; then
     replaceBuildMetadataInFile "$params_file"
     expanded_data+=("-d" "@$params_file")
   elif isSet params_text; then
-    data_text=$(replaceBuildMetadata "$params_text")
-    expanded_data+=("-d" "$data_text")
+    expanded_data+=("-d" "$(replaceBuildMetadata "$params_text")")
+  elif isSet source_file; then
+    replaceBuildMetadataInFile "$source_file"
+    expanded_data+=("-d" "@$source_file")
+  elif isSet source_text; then
+    expanded_data+=("-d" "$(replaceBuildMetadata "$source_text")")
   fi
 
   # other options (auth, ssl, etc)
@@ -72,6 +79,10 @@ invokeCurl() {
   fi
 
   log -p "\n--> invoking ${yellow}${method}${reset} ${blue}${source_url}${reset} ..."
+  log "headers: ${expanded_headers[*]}"
+  log "data: ${expanded_data[*]}"
+  log "options: ${expanded_options[*]}"
+
   curl -s -X ${method} "${expanded_headers[@]}" "${expanded_data[@]}" "${expanded_options[@]}" -D ${response_headers} ${source_url} > $response_body || exit $1
 }
 

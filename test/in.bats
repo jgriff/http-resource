@@ -106,6 +106,49 @@ teardown() {
     assert_equal $(cat $request_headers | sed -n -e "/^Param-Header:/p" | cut -d':' -f2-) 'param-value'
 }
 
+@test "[in] fetches the resource with source data text" {
+    source_in "stdin-source-data-text"
+
+    fetchResource
+
+    assert_equal "${expanded_data[0]}" "-d"
+    assert_equal "${expanded_data[1]}" "some-source-data"
+}
+
+@test "[in] fetches the resource with param data text" {
+    source_in "stdin-source-params-data-text"
+
+    fetchResource
+
+    assert_equal "${expanded_data[0]}" "-d"
+    assert_equal "${expanded_data[1]}" "some-param-data"
+}
+
+@test "[in] fetches the resource with param data text (overrides source)" {
+    source_in "stdin-source-params-data-text-override"
+
+    fetchResource
+
+    assert_equal "${expanded_data[0]}" "-d"
+    assert_equal "${expanded_data[1]}" "some-param-data"
+}
+
+@test "[in] fails if both 'text' and 'file' params are configured" {
+    source_in "stdin-source-params-data-text-and-file"
+
+    run fetchResource
+
+    assert_failure
+}
+
+@test "[in] fails if both 'text' and 'file' source are configured" {
+    source_in "stdin-source-data-text-and-file"
+
+    run fetchResource
+
+    assert_failure
+}
+
 @test "[in] fetch will fail if 'strict' param is 'true' and the requested version does not match current version" {
     source_in "stdin-source-params-strict-with-version"
 

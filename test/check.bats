@@ -91,6 +91,15 @@ teardown() {
     assert_equal $(cat $request_headers | sed -n -e "/^Source-Header:/p" | cut -d':' -f2-) 'source-value'
 }
 
+@test "[check] invokes endpoint with source data text" {
+    source_check "stdin-source-data-text"
+
+    checkResource
+
+    assert_equal "${expanded_data[0]}" "-d"
+    assert_equal "${expanded_data[1]}" "some-source-data"
+}
+
 @test "[check] determines version from jq query of response body" {
     source_check stdin-source-version-jq
 

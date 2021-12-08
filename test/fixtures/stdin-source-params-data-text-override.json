@@ -1,4 +1,7 @@
 {
+  "source": {
+    "text": "some-source-data"
+  },
   "params": {
     "text": "some-param-data"
   }
