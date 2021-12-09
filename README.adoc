@@ -36,7 +36,17 @@ source:
 +
 TIP: Concourse https://concourse-ci.org/implementing-resource-types.html#resource-metadata[build metadata variables] can be used in both `file` and `text` content, and will be automatically substituted in `get` and `put` steps.
 
-* `version`: _Optional_. How to determine the resource's version.  Default is to calculate the `sha-1` digest of the response body.  Choose one of:
+[#config-source-version]
+* `version`: _Optional_. How to determine the resource's version (see xref:versions[]).  Default is to compute a hash digest of the response body (without the headers).
+
+** `jq`: A `jq` expression to select a value from the response body as the version.
++
+[source,yaml]
+----
+source:
+  version:
+    jq: .some.path.in.the.response.body
+----
 ** `header`: A response header to use as the version.
 +
 [source,yaml]
@@ -45,15 +55,22 @@ source:
   version:
     header: Last-Modified
 ----
-** `jq`: A `jq` expression to select a value from the response body as the version.
+** `hash`: Compute a digest from a particular component of the response.  Options are:
+*** `headers` - Compute the digest from the response headers only.
+*** `body` - Compute the digest from the response body only.
+*** `full` - Compute the digest from the response headers and body together.
 +
 [source,yaml]
 ----
 source:
   version:
-    jq: '.some.path.in.the.response.body'
+    hash: body
 ----
-If none of the above are configured, then a `sha-1` digest of the response body is used for the version of the resource.
+** `default`: The default version strategy to fall back on if none of the above are configured or cannot yield a non-empty value.
+Options are:
+*** `hash` - (Default) Compute a hash digest of the response body.
+*** `none` - Don't emit any version.  Concourse will ignore the `check` result.
+
 * `out_only`: _Optional._  Disables the `check` and `in` operations, turning them into no-ops (including the implicit `get` after each `put`).
 Relevant for scenarios where you are _only_ using `put` operations, or for any other reason you do not want to regularly check the endpoint.  Default is `false`.
 * `sensitive`: _Optional._  If `true`, the responses from the endpoint will be considered sensitive and not show up in the logs or Concourse UI.  Can be overridden as a param to each `get` or `put` step. Default is `false`.
@@ -171,82 +188,237 @@ jobs:
 <1> post the file content that was retrieved in the `get` step.
 <2> disable the implicit `get` after a `put` (since issuing a `GET` to `https://httpbin.org/post` returns a `405 METHOD NOT ALLOWED` and will fail our pipeline).
 
-=== Version Strategies
+=== `get` ignore some versions
 
-By default, a `sha-1` digest of the entire response body is used as the version of the resource.
+In some scenarios, you may want to version on a response property or header that may not always be returned.
 
-Below are examples of other strategies for determining the version (see xref:#config-source[]).
+The default behavior for this would be to fallback to generating a `hash` of the response payload.
+However, if you would rather simply skip those missing versions all together, you can configure the `default` to `none`.
+This will cause `check` to omit that version.
 
-NOTE: The examples below are not practical, just demonstrating the mechanics and working with the responses that `httpbin.org` provides.
+For example, if we want to version _only_ on responses that contain the structure:
 
-==== From Response Header
+[source,json]
+----
+{
+  "usually": {
+    "present": {
+      "version": "some-version-value"
+    }
+  }
+}
+----
 
-Use the value of a particular response header for the version of the resource.
+Then we can configure our pipeline as:
 
 [source,yaml]
 ----
+resource_types:
+  - name: http-resource
+    type: docker-image
+    source:
+      repository: jgriff/http-resource
+
 resources:
-  - name: http-bin
+  - name: volatile-endpoint
     type: http-resource
     source:
-      url: https://httpbin.org/get
+      url: https://someplace.io/anything
       version:
-        header: date
+        jq: .usually.present.version  <1>
+        default: none                 <2>
 
 jobs:
-  - name: get-something
+  - name: get-good-version
     plan:
-      - get: http-bin
+      - get: volatile-endpoint
+        strict: true                  <3>
         trigger: true
 ----
+<1> for versions we want, this attribute will be present in the response body.
+<2> ignores any response without our desired `jq` path
+<3> ensure we only process resource versions that strictly match our version requirements.
 
-==== From Response Body
-
-Use a `jq` query into the response body to select the version of the resource.
+This also works nicely in fallback strategies.
 
 [source,yaml]
 ----
-resources:
-  - name: http-bin
-    type: http-resource
     source:
-      url: https://httpbin.org/get
+      url: https://someplace.io/anything
       version:
-        jq: .headers."X-Amzn-Trace-Id"
-
-jobs:
-  - name: get-something
-    plan:
-      - get: http-bin
-        trigger: true
+        jq: .usually.present.version  <1>
+        header: Might-Exist           <2>
+        default: none                 <3>
 ----
+<1> Try a `jq` query first.
+<2> If that doesn't match, check for a response header.
+<3> If neither of those match, then ignore the version.
 
-==== Multiple Strategies and Fallback Precedence
+For more details, see xref:versions[].
 
-You can configure any/all of the `version` strategies together, and they will be attempted in the following order:
+[#versions]
+== Version Strategies
+
+By default, a hash digest of the response body is used as the version of the resource.
+
+However, you can configure any/all of the xref:config-source-version[`version`] strategies together and they will be attempted in the following order:
 
 . `jq`
 . `header`
+. `hash`
+. `default`
 
-If none of them can produce a non-empty string, then the `sha-1` digest is used.
+The first one to yield a non-empty value will be used as the version.
 
-The pipeline below demonstrates attempting all of the version strategies,
-and ultimately generating a `sha-1` digest.
+If none of them can produce a non-empty string, then the configured `default` strategy is used (which defaults to a `hash` of the response body).
+
+For example, suppose our endpoint returns the following response:
+
+[source]
+----
+HTTP/1.1 200 OK
+Content-Type: application/json
+Some-Header: some-header-value
+Version: 1
+
+{
+  "some": "response",
+  "version": "abc-123"
+}
+----
+
+The table below lists various examples for determining the version from this endpoint.
+
+.Version Examples
+[cols="a,a"]
+|===
+|Source Config |Yields
+
+|[source,yaml]
+----
+    source:
+      version:
+        jq: .version
+----
+|`"abc-123"`
+
+|[source,yaml]
+----
+    source:
+      version:
+        header: Version
+----
+|`1`
+
+|[source,yaml]
+----
+    source: # no version config
+----
+or
+[source,yaml]
+----
+    source:
+      version:
+        hash: body
+----
+or
+[source,yaml]
+----
+    source:
+      version:
+        default: hash
+----
+|(hash of response body)
+
+|[source,yaml]
+----
+    source:
+      version:
+        hash: headers
+----
+|(hash of response headers)
+
+|[source,yaml]
+----
+    source:
+      version:
+        hash: full
+----
+|(hash of response headers + body)
+
+|===
+
+.Version Examples - Fallback Scenarios
+[cols="a,a"]
+|===
+|Source Config |Yields
+
+|[source,yaml]
+----
+    source:
+      version:
+        jq: .version            # value
+        header: Version         # not tried
+----
+|`"abc-123"`
+
+|[source,yaml]
+----
+    source:
+      version:
+        jq: .does.not.exist     # no value
+        header: Version         # value
+----
+|`1`
+
+|[source,yaml]
+----
+    source:
+      version:
+        jq: .does.not.exist     # no value
+        header: Does-Not-Exist  # no value
+        # none match, defaults to hash
+----
+or
+[source,yaml]
+----
+    source:
+      version:
+        jq: .does.not.exist     # no value
+        header: Does-Not-Exist  # no value
+        hash: body              # value
+----
+or
+[source,yaml]
+----
+    source:
+      version:
+        jq: .does.not.exist     # no value
+        header: Does-Not-Exist  # no value
+        default: hash           # default to hash
+----
+|(hash of response body)
+
+|[source,yaml]
+----
+    source:
+      version:
+        jq: .does.not.exist     # no value
+        header: Does-Not-Exist  # no value
+        default: none           # default to no version
+----
+|Yields no versions.  Concourse will ignore the result of `check`.
+
+|===
+
+[WARNING]
+====
+Configuring the `version` with _only_ a `default` of `none` will _never_ yield _any_ version from `check`.
 
 [source,yaml]
 ----
-resources:
-  - name: http-bin
-    type: http-resource
     source:
-      url: https://httpbin.org/get
       version:
-        header: Does-Not-Exist
-        jq: .does.not.exist
-
-jobs:
-  - name: get-something
-    plan:
-      - get: http-bin
-        trigger: true
+        default: none
 ----
+====

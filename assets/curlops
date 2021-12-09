@@ -122,11 +122,34 @@ determineVersion() {
     version=$(trim $version)
   fi
 
-  # if we still haven't figure out the version, calculate a sha-1 digest of the response body
-  if notSet version; then
-    log -p "\n--> calculating the ${blue}sha-1 digest${reset} of the response body to use as the version"
-    version=$(sha1sum $response_body | cut -d' ' -f1)
+  # if we haven't figured out the version yet, try the hash (if configured)
+  if notSet version  && isSet source_version_hash; then
+    if [ "$source_version_hash" == "headers" ]; then
+      log -p "\n--> attempting to determine version from hash of response headers"
+      version=$(sha1sum $response_headers | cut -d' ' -f1)
+    elif [ "$source_version_hash" == "body" ]; then
+      log -p "\n--> attempting to determine version from hash of response body"
+      version=$(sha1sum $response_body | cut -d' ' -f1)
+    elif [ "$source_version_hash" == "full" ]; then
+      log -p "\n--> attempting to determine version from hash of response headers + body"
+      version=$(cat $response_headers $response_body | sha1sum | cut -d' ' -f1)
+    else
+      log -p "${red}Unsupported version hash option: ${blue}${source_version_hash}${reset}\nMust be one of: ${blue}headers${reset}, ${blue}body${reset}, or ${blue}full${reset}"
+      exit 1
+    fi
     version=$(trim $version)
+  fi
+
+  # if we still haven't figure out the version, use the default
+  if notSet version; then
+    if notSet source_version_default || [ "$source_version_default" == "hash" ]; then
+      log -p "\n--> defaulting version to the ${blue}hash${reset} digest of the response body"
+      version=$(sha1sum $response_body | cut -d' ' -f1)
+      version=$(trim $version)
+    elif [ "$source_version_default" == "none" ]; then
+      log -p "\n--> defaulting version to ${blue}none${reset}"
+      unset version
+    fi
   fi
 
   log -p "\n--> version is:  ${cyan}${version}${reset}"

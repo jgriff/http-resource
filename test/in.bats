@@ -252,7 +252,7 @@ teardown() {
     assert_equal "$(jq -r '.metadata[] | select(.name == "status") | .value ' <<< "$output")" "no-op"
 }
 
-@test "[in] e2e in" {
+@test "[in] e2e in and determine version from jq query of response body" {
     source_in
 
     echo "HTTP/1.1 200 OK" > $response_headers
@@ -260,6 +260,85 @@ teardown() {
 
     # should emit the version attribute
     assert_equal "$(jq -r '.version.version' <<< "$output")" 'abc-123'
+
+    # includes the http response in the resource's metadata
+    assert_equal "$(jq -r '. | any(.metadata[]; .name == "status" and .value == "HTTP/1.1 200 OK")' <<< "$output")" 'true'
+}
+
+@test "[in] e2e in and determine version from header" {
+    source_in "stdin-source-version-header"
+
+    echo "HTTP/1.1 200 OK" > $response_headers
+    echo "Version: some-header-version" >> $response_headers
+    output=$(main 5>&1 1>&2)
+
+    # should emit the version attribute
+    assert_equal "$(jq -r '.version.version' <<< "$output")" 'some-header-version'
+
+    # includes the http response in the resource's metadata
+    assert_equal "$(jq -r '. | any(.metadata[]; .name == "status" and .value == "HTTP/1.1 200 OK")' <<< "$output")" 'true'
+}
+
+@test "[in] e2e in and determine version from hash of response headers" {
+    source_in "stdin-source-version-hash-headers"
+
+    echo "HTTP/1.1 200 OK" > $response_headers
+    output=$(main 5>&1 1>&2)
+
+    # should emit the version attribute
+    assert_equal "$(jq -r '.version.version' <<< "$output")" '03a764439420d9baf08e4d2e2c16a65e1ddcbb08'
+
+    # includes the http response in the resource's metadata
+    assert_equal "$(jq -r '. | any(.metadata[]; .name == "status" and .value == "HTTP/1.1 200 OK")' <<< "$output")" 'true'
+}
+
+@test "[in] e2e in and determine version from hash of response body" {
+    source_in "stdin-source-version-hash-body"
+
+    echo "HTTP/1.1 200 OK" > $response_headers
+    output=$(main 5>&1 1>&2)
+
+    # should emit the version attribute
+    assert_equal "$(jq -r '.version.version' <<< "$output")" '70fea65041d5c7cda924db721e5162b8a243afb8'
+
+    # includes the http response in the resource's metadata
+    assert_equal "$(jq -r '. | any(.metadata[]; .name == "status" and .value == "HTTP/1.1 200 OK")' <<< "$output")" 'true'
+}
+
+@test "[in] e2e in and determine version from hash of response headers + body" {
+    source_in "stdin-source-version-hash-full"
+
+    echo "HTTP/1.1 200 OK" > $response_headers
+    output=$(main 5>&1 1>&2)
+
+    # should emit the version attribute
+    assert_equal "$(jq -r '.version.version' <<< "$output")" '444e6a27a8193519e0d2a14540b742642cd5275f'
+
+    # includes the http response in the resource's metadata
+    assert_equal "$(jq -r '. | any(.metadata[]; .name == "status" and .value == "HTTP/1.1 200 OK")' <<< "$output")" 'true'
+}
+
+@test "[in] e2e in and determine version from hash of response body when default is 'hash'" {
+    source_in "stdin-source-version-default-hash"
+
+    echo "HTTP/1.1 200 OK" > $response_headers
+    output=$(main 5>&1 1>&2)
+
+    # should emit the version attribute
+    assert_equal "$(jq -r '.version.version' <<< "$output")" '70fea65041d5c7cda924db721e5162b8a243afb8'
+
+    # includes the http response in the resource's metadata
+    assert_equal "$(jq -r '. | any(.metadata[]; .name == "status" and .value == "HTTP/1.1 200 OK")' <<< "$output")" 'true'
+}
+
+@test "[in] e2e in and emit version requested when default version is 'none'" {
+    source_in "stdin-source-with-version-default-none"
+
+    echo "HTTP/1.1 200 OK" > $response_headers
+    output=$(main 5>&1 1>&2)
+
+    # should emit the requested version attribute
+    assert_equal "$(jq -r '.version.version' <<< "$output")" 'some-version-from-check'
 
     # includes the http response in the resource's metadata
     assert_equal "$(jq -r '. | any(.metadata[]; .name == "status" and .value == "HTTP/1.1 200 OK")' <<< "$output")" 'true'

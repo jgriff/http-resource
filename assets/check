@@ -27,7 +27,11 @@ checkResource() {
 }
 
 emitResult() {
-  out=$(jq -n --arg version "$version" '[{version: $version}]')
+  if notSet version; then
+    out='[]'
+  else
+    out=$(jq -n --arg version "$version" '[{version: $version}]')
+  fi
   log "\n--> OUT\n$out"
   jq -n "$out" | jq 'flatten' >&5
 }

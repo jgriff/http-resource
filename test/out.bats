@@ -181,6 +181,20 @@ teardown() {
     assert_equal "$(jq -r '.version.version' <<< "$output")" 'the-version'
 }
 
+@test "[out] emits empty string version if it is not set" {
+    source_out
+
+    unset version
+    response_status="HTTP/1.1 200 OK"
+    output=$(emitResult 5>&1)
+
+    # no version attributed is emitted
+    assert_equal "$(jq -r '.version.version' <<< "$output")" ''
+
+    # metadata is still emitted
+    assert_equal "$(jq -r '.metadata[] | select(.name == "status") | .value ' <<< "$output")" "HTTP/1.1 200 OK"
+}
+
 @test "[out] emits the http method in the metadata" {
     source_out
 

@@ -1,0 +1,11 @@
+{
+  "source": {
+    "url": "https://some-server:8443",
+    "version": {
+      "default": "none"
+    }
+  },
+  "version": {
+    "version": "some-version-from-check"
+  }
+}
