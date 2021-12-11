@@ -119,16 +119,16 @@ teardown() {
     assert_equal "$version" '1'
 }
 
-@test "[check] determines version from jq query first and fall back on header" {
-    source_check stdin-source-version-jq-and-header
+@test "[check] determines version from hash digest of response headers" {
+    source_check stdin-source-version-hash-headers
 
     determineVersion
 
-    assert_equal "$version" '1'
+    assert_equal "$version" '066a07b2138ac71a14900fa52e4e0995a547d4b2'
 }
 
-@test "[check] determines version from sha-1 digest of body when all else fails" {
-    source_check stdin-source-version-jq-and-header-fallback
+@test "[check] determines version from hash digest of response body" {
+    source_check stdin-source-version-hash-body
 
     # given a response body...
     cat $BATS_TEST_DIRNAME/fixtures/curl-response-body.json > $response_body
@@ -138,7 +138,73 @@ teardown() {
     assert_equal "$version" '70fea65041d5c7cda924db721e5162b8a243afb8'
 }
 
-@test "[check] determines version from sha-1 digest when no version strategy configured" {
+@test "[check] determines version from hash digest of response headers + body" {
+    source_check stdin-source-version-hash-full
+
+    # given a response body...
+    cat $BATS_TEST_DIRNAME/fixtures/curl-response-body.json > $response_body
+
+    determineVersion
+
+    assert_equal "$version" 'b2aacf40fc9e4d03ef1afdb59239e13784e09b5d'
+}
+
+@test "[check] determines version from jq query first, then header" {
+    source_check stdin-source-version-jq-and-header
+
+    # given a response body...
+    cat $BATS_TEST_DIRNAME/fixtures/curl-response-body.json > $response_body
+
+    determineVersion
+
+    assert_equal "$version" '1'
+}
+
+@test "[check] determines version from jq query first, then header, then hash digest" {
+    source_check stdin-source-version-jq-and-header-and-hash
+
+    # given a response body...
+    cat $BATS_TEST_DIRNAME/fixtures/curl-response-body.json > $response_body
+
+    determineVersion
+
+    assert_equal "$version" '066a07b2138ac71a14900fa52e4e0995a547d4b2'
+}
+
+@test "[check] determines version from jq query first, then header, then default to 'hash' (by default)" {
+    source_check stdin-source-version-jq-and-header-default
+
+    # given a response body...
+    cat $BATS_TEST_DIRNAME/fixtures/curl-response-body.json > $response_body
+
+    determineVersion
+
+    assert_equal "$version" '70fea65041d5c7cda924db721e5162b8a243afb8'
+}
+
+@test "[check] determines version from jq query first, then header, then default to 'hash' (explicitly)" {
+    source_check stdin-source-version-jq-and-header-default-hash
+
+    # given a response body...
+    cat $BATS_TEST_DIRNAME/fixtures/curl-response-body.json > $response_body
+
+    determineVersion
+
+    assert_equal "$version" '70fea65041d5c7cda924db721e5162b8a243afb8'
+}
+
+@test "[check] determines version from jq query first, then header, then default to 'none'" {
+    source_check stdin-source-version-jq-and-header-default-none
+
+    # given a response body...
+    cat $BATS_TEST_DIRNAME/fixtures/curl-response-body.json > $response_body
+
+    determineVersion
+
+    assert_equal "$version" ''
+}
+
+@test "[check] determines version from hash digest when no version strategy configured" {
     source_check
 
     # given a response body...
@@ -149,7 +215,29 @@ teardown() {
     assert_equal "$version" '70fea65041d5c7cda924db721e5162b8a243afb8'
 }
 
-@test "[check] e2e initial check with sha-1 digest version" {
+@test "[check] determines version from hash digest when default is 'hash'" {
+    source_check stdin-source-version-default-hash
+
+    # given a response body...
+    cat $BATS_TEST_DIRNAME/fixtures/curl-response-body.json > $response_body
+
+    determineVersion
+
+    assert_equal "$version" '70fea65041d5c7cda924db721e5162b8a243afb8'
+}
+
+@test "[check] determines version to be empty string when default is 'none'" {
+    source_check stdin-source-version-default-none
+
+    # given a response body...
+    cat $BATS_TEST_DIRNAME/fixtures/curl-response-body.json > $response_body
+
+    determineVersion
+
+    assert_equal "$version" ''
+}
+
+@test "[check] e2e initial check with default hash digest of response body as version" {
     source_check
 
     output=$(main 5>&1 1>&2)
@@ -180,6 +268,59 @@ teardown() {
     assert_equal $(jq length <<< "$output") 1
     assert_equal "$(jq -r '.[0] | length' <<< "$output")" '1'
     assert_equal "$(jq -r '.[0].version' <<< "$output")" '1'
+}
+
+@test "[check] e2e initial check with hash digest of response headers as version" {
+    source_check stdin-source-version-hash-headers
+
+    output=$(main 5>&1 1>&2)
+
+    # should emit 1 version
+    assert_equal $(jq length <<< "$output") 1
+    assert_equal "$(jq -r '.[0] | length' <<< "$output")" '1'
+    assert_equal "$(jq -r '.[0].version' <<< "$output")" '066a07b2138ac71a14900fa52e4e0995a547d4b2'
+}
+
+@test "[check] e2e initial check with hash digest of response body as version" {
+    source_check stdin-source-version-hash-body
+
+    output=$(main 5>&1 1>&2)
+
+    # should emit 1 version
+    assert_equal $(jq length <<< "$output") 1
+    assert_equal "$(jq -r '.[0] | length' <<< "$output")" '1'
+    assert_equal "$(jq -r '.[0].version' <<< "$output")" '70fea65041d5c7cda924db721e5162b8a243afb8'
+}
+
+@test "[check] e2e initial check with hash digest of full response as version" {
+    source_check stdin-source-version-hash-full
+
+    output=$(main 5>&1 1>&2)
+
+    # should emit 1 version
+    assert_equal $(jq length <<< "$output") 1
+    assert_equal "$(jq -r '.[0] | length' <<< "$output")" '1'
+    assert_equal "$(jq -r '.[0].version' <<< "$output")" 'b2aacf40fc9e4d03ef1afdb59239e13784e09b5d'
+}
+
+@test "[check] e2e initial check with default version of 'hash' yields digest of response body as version" {
+    source_check stdin-source-version-default-hash
+
+    output=$(main 5>&1 1>&2)
+
+    # should emit 1 version
+    assert_equal $(jq length <<< "$output") 1
+    assert_equal "$(jq -r '.[0] | length' <<< "$output")" '1'
+    assert_equal "$(jq -r '.[0].version' <<< "$output")" '70fea65041d5c7cda924db721e5162b8a243afb8'
+}
+
+@test "[check] e2e initial check with default version of 'none' yields no versions" {
+    source_check stdin-source-version-default-none
+
+    output=$(main 5>&1 1>&2)
+
+    # should emit an empty version list
+    assert_equal $(jq length <<< "$output") 0
 }
 
 @test "[check] no-op if source config 'out_only' is 'true'" {

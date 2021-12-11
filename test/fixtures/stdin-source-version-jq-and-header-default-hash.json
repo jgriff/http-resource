@@ -1,0 +1,9 @@
+{
+  "source": {
+    "version": {
+      "header": "Version-Not-Exist",
+      "jq": ".\"version-not-exist\"",
+      "default": "hash"
+    }
+  }
+}

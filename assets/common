@@ -141,6 +141,8 @@ source_file=$(jq -r '.source.file // ""' < $payload)
 source_sensitive=$(jq -r '.source.sensitive | select(.!=null)' < $payload)
 source_version_header=$(jq -r '.source.version.header // ""' < $payload)
 source_version_jq=$(jq -r '.source.version.jq // ""' < $payload)
+source_version_hash=$(jq -r '.source.version.hash // ""' < $payload)
+source_version_default=$(jq -r '.source.version.default // ""' < $payload)
 source_out_only=$(jq -r '.source.out_only // false' < $payload)
 
 # params config
