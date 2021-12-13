@@ -232,8 +232,9 @@ jobs:
   - name: get-good-version
     plan:
       - get: volatile-endpoint
-        strict: true                  <3>
         trigger: true
+        params:
+          strict: true                <3>
 ----
 <1> for versions we want, this attribute will be present in the response body.
 <2> ignores any response without our desired `jq` path
