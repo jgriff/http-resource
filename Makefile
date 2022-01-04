@@ -35,7 +35,6 @@ build: TAG=${VERSION}
 build:
 	@echo -e "\n[${COLOR_BLUE}build${COLOR_RESET}/${COLOR_TEAL}${TAG}${COLOR_RESET}] ${COLOR_ORANGE}Building image${COLOR_RESET}..."
 	@docker build -t ${IMAGE}:${TAG} -t ${IMAGE}:$(shell echo ${TAG} | rev | cut -d '.' -f2- | rev ) .
-	@docker buildx ls
 build_latest:
 	@echo -e "\n[${COLOR_BLUE}build${COLOR_RESET}/${COLOR_TEAL}latest${COLOR_RESET}] ${COLOR_ORANGE}Building image${COLOR_RESET}..."
 	@docker build -t ${IMAGE} .
