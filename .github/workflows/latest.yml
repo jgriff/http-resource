@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v2
+      - name: install buildx
+        uses: docker/setup-buildx-action@v1
       - name: build latest
         run: make build_latest
       - name: test latest
