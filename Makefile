@@ -64,5 +64,7 @@ release: TAG=${VERSION}
 release_latest: TAG=latest
 release release_latest:
 	@echo -e "\n[${COLOR_BLUE}release${COLOR_RESET}/${COLOR_TEAL}${TAG}${COLOR_RESET}] ${COLOR_ORANGE}Pushing image${COLOR_RESET}..."
-	@docker push ${IMAGE}:${TAG}
-	@docker push ${IMAGE}:$(shell echo ${TAG} | rev | cut -d '.' -f2- | rev )
+	@docker buildx create --name http-resource-builder
+	@docker buildx build --builder http-resource-builder --platform linux/amd64,linux/arm64/v8 --push --tag ${IMAGE}:$(shell echo ${TAG} | rev | cut -d '.' -f2- | rev ) .
+	@docker buildx build --builder http-resource-builder --platform linux/amd64,linux/arm64/v8 --push --tag ${IMAGE}:${TAG} .
+	@docker buildx rm http-resource-builder
