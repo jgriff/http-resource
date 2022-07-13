@@ -1,0 +1,8 @@
+{
+  "source": {
+    "file": "some-dir/some-source-file.json"
+  },
+  "params": {
+    "file": "some-dir/some-params-file.json"
+  }
+}
