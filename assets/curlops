@@ -57,12 +57,20 @@ invokeCurl() {
     exit 1
   elif isSet params_file; then
     replaceBuildMetadataInFile "$params_file"
-    expanded_data+=("-d" "@$params_file")
+    if isTrue params_data_binary || (isTrue source_data_binary && notSet params_data_binary); then
+      expanded_data+=("--data-binary" "@$params_file")
+    else
+      expanded_data+=("-d" "@$params_file")
+    fi
   elif isSet params_text; then
     expanded_data+=("-d" "$(replaceBuildMetadata "$params_text")")
   elif isSet source_file; then
     replaceBuildMetadataInFile "$source_file"
-    expanded_data+=("-d" "@$source_file")
+    if isTrue params_data_binary || (isTrue source_data_binary && notSet params_data_binary); then
+      expanded_data+=("--data-binary" "@$source_file")
+    else
+      expanded_data+=("-d" "@$source_file")
+    fi
   elif isSet source_text; then
     expanded_data+=("-d" "$(replaceBuildMetadata "$source_text")")
   fi

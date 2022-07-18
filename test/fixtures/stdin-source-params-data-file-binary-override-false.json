@@ -1,0 +1,10 @@
+{
+  "source": {
+    "file": "some-dir/some-source-file.json",
+    "data_binary": true
+  },
+  "params": {
+    "file": "some-dir/some-params-file.json",
+    "data_binary": false
+  }
+}

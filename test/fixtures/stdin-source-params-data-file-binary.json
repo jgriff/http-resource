@@ -1,0 +1,6 @@
+{
+  "params": {
+    "file": "some-dir/some-params-file.json",
+    "data_binary": true
+  }
+}

@@ -35,6 +35,7 @@ source:
 * `text`: _Optional._ Inline text to be sent as the body of the request.  Cannot be specified at the same time as `file`.  Can be overridden as a parm to each `get` or `put` step.
 +
 TIP: Concourse https://concourse-ci.org/implementing-resource-types.html#resource-metadata[build metadata variables] can be used in both `file` and `text` content, and will be automatically substituted in `get` and `put` steps.
+* `data_binary`: _Optional._  Whether to treat the `file` data as binary (rather than plain text).  This has implications on the mode used in the `put` operation _only_.  Can be overridden as a parm to each `put` step.  Default is `false`.
 
 [#config-source-version]
 * `version`: _Optional_. How to determine the resource's version (see xref:versions[]).  Default is to compute a hash digest of the response body (without the headers).
