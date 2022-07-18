@@ -21,6 +21,9 @@ source_out() {
     log() { :; }
     export -f log
 
+    # stub the build metadata replacements (can't easily mock this with tmp files since source config doesn't point to a tmp file)
+    replaceBuildMetadataInFile() { :; }
+
     # create some tmp files
     request_headers="$BATS_TEST_TMPDIR/request_headers"
     response_headers="$BATS_TEST_TMPDIR/response_headers"
@@ -120,6 +123,17 @@ teardown() {
     assert_equal $(cat $request_headers | sed -n -e "/^Param-Header:/p" | cut -d':' -f2-) 'param-value'
 }
 
+@test "[out] invokes endpoint with source data file" {
+    source_out "stdin-source-data-file"
+
+    target_dir=$BATS_TEST_TMPDIR
+
+    putResource
+
+    assert_equal "${expanded_data[0]}" "-d"
+    assert_equal "${expanded_data[1]}" "@some-dir/some-source-file.json"
+}
+
 @test "[out] invokes endpoint with source data text" {
     source_out "stdin-source-data-text"
 
@@ -129,6 +143,28 @@ teardown() {
 
     assert_equal "${expanded_data[0]}" "-d"
     assert_equal "${expanded_data[1]}" "some-source-data"
+}
+
+@test "[out] invokes endpoint with param data file" {
+    source_out "stdin-source-params-data-file"
+
+    target_dir=$BATS_TEST_TMPDIR
+
+    putResource
+
+    assert_equal "${expanded_data[0]}" "-d"
+    assert_equal "${expanded_data[1]}" "@some-dir/some-params-file.json"
+}
+
+@test "[out] invokes endpoint with param data file (overrides source data)" {
+    source_out "stdin-source-params-data-file-override"
+
+    target_dir=$BATS_TEST_TMPDIR
+
+    putResource
+
+    assert_equal "${expanded_data[0]}" "-d"
+    assert_equal "${expanded_data[1]}" "@some-dir/some-params-file.json"
 }
 
 @test "[out] invokes endpoint with param data text" {
