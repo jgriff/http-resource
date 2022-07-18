@@ -134,6 +134,28 @@ teardown() {
     assert_equal "${expanded_data[1]}" "@some-dir/some-source-file.json"
 }
 
+@test "[out] invokes endpoint with source data file in binary mode" {
+    source_out "stdin-source-data-file-binary"
+
+    target_dir=$BATS_TEST_TMPDIR
+
+    putResource
+
+    assert_equal "${expanded_data[0]}" "--data-binary"
+    assert_equal "${expanded_data[1]}" "@some-dir/some-source-file.json"
+}
+
+@test "[out] invokes endpoint with source data file in binary mode (overrides to false)" {
+    source_out "stdin-source-data-file-binary-override-false"
+
+    target_dir=$BATS_TEST_TMPDIR
+
+    putResource
+
+    assert_equal "${expanded_data[0]}" "-d"
+    assert_equal "${expanded_data[1]}" "@some-dir/some-source-file.json"
+}
+
 @test "[out] invokes endpoint with source data text" {
     source_out "stdin-source-data-text"
 
@@ -156,8 +178,30 @@ teardown() {
     assert_equal "${expanded_data[1]}" "@some-dir/some-params-file.json"
 }
 
+@test "[out] invokes endpoint with param data file in binary mode" {
+    source_out "stdin-source-params-data-file-binary"
+
+    target_dir=$BATS_TEST_TMPDIR
+
+    putResource
+
+    assert_equal "${expanded_data[0]}" "--data-binary"
+    assert_equal "${expanded_data[1]}" "@some-dir/some-params-file.json"
+}
+
 @test "[out] invokes endpoint with param data file (overrides source data)" {
     source_out "stdin-source-params-data-file-override"
+
+    target_dir=$BATS_TEST_TMPDIR
+
+    putResource
+
+    assert_equal "${expanded_data[0]}" "-d"
+    assert_equal "${expanded_data[1]}" "@some-dir/some-params-file.json"
+}
+
+@test "[out] invokes endpoint with param data file in binary mode (overrides source data to false)" {
+    source_out "stdin-source-params-data-file-binary-override-false"
 
     target_dir=$BATS_TEST_TMPDIR
 
