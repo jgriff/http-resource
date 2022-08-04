@@ -107,7 +107,7 @@ containsElement () {
 # given a string, performs token replacement for the concourse build metadata environment variables
 replaceBuildMetadata() {
   local str=$1
-  for var in BUILD_ID BUILD_NAME BUILD_JOB_NAME BUILD_PIPELINE_NAME BUILD_TEAM_NAME ATC_EXTERNAL_URL; do
+  for var in BUILD_ID BUILD_NAME BUILD_JOB_NAME BUILD_PIPELINE_NAME BUILD_TEAM_NAME BUILD_CREATED_BY ATC_EXTERNAL_URL; do
     str="${str//\$$var/${!var:-}}"
     str="${str//\$\{$var\}/${!var:-}}"
   done
@@ -119,6 +119,27 @@ replaceBuildMetadataInFile() {
   local target_file=${2:-$source_file}
   local tmp="$(cat "$target_file")"
   echo "$(replaceBuildMetadata "$tmp")" > "$target_file"
+}
+
+# given a string, determine if it is listed in our "build_metadata" for token replacement
+shouldReplaceBuildMetadataIn() {
+  local component=$1
+  if isSet params_build_metadata; then
+    if $(jq --arg COMPONENT "$component" 'any(index($COMPONENT))' <<< "$params_build_metadata"); then return 0; fi
+  elif isSet source_build_metadata; then
+    if $(jq --arg COMPONENT "$component" 'any(index($COMPONENT))' <<< "$source_build_metadata"); then return 0; fi
+  fi
+  return 1;
+}
+
+shouldReplaceBuildMetadataInHeaders() {
+  if $(shouldReplaceBuildMetadataIn "headers"); then return 0; fi
+  return 1;
+}
+
+shouldReplaceBuildMetadataInBody() {
+  if $(shouldReplaceBuildMetadataIn "body"); then return 0; fi
+  return 1;
 }
 
 # -------------------------------------------------------------------------------------
@@ -145,6 +166,7 @@ source_version_hash=$(jq -r '.source.version.hash // ""' < $payload)
 source_version_default=$(jq -r '.source.version.default // ""' < $payload)
 source_out_only=$(jq -r '.source.out_only // false' < $payload)
 source_data_binary=$(jq -r '.source.data_binary // false' < $payload)
+source_build_metadata=$(jq -r '.source.build_metadata | select(.!=null)' < $payload)
 
 # params config
 params_method=$(jq -r '.params.method // ""' < $payload)
@@ -153,3 +175,4 @@ params_strict=$(jq -r '.params.strict // false' < $payload)
 params_text=$(jq -r '.params.text // ""' < $payload)
 params_file=$(jq -r '.params.file // ""' < $payload)
 params_data_binary=$(jq -r '.params.data_binary | select(.!=null)' < $payload)
+params_build_metadata=$(jq -r '.params.build_metadata | select(.!=null)' < $payload)
