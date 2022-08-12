@@ -86,6 +86,10 @@ invokeCurl() {
     expanded_options+=("--insecure")
   fi
 
+  if [ "${method^^}" == "HEAD" ]; then
+    expanded_options+=("--head")
+  fi
+
   log -p "\n--> invoking ${yellow}${method}${reset} ${blue}${source_url}${reset} ..."
   log "headers: ${expanded_headers[*]}"
   log "data: ${expanded_data[*]}"
