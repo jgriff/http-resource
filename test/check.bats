@@ -331,3 +331,19 @@ teardown() {
     # should emit an empty version list
     assert_equal $(jq length <<< "$output") 0
 }
+
+@test "[check] (gh-8) includes option '--head' when method is HEAD" {
+    source_check "stdin-source-method-head"
+
+    checkResource
+
+    assert_equal "${expanded_options[0]}" "--head"
+}
+
+@test "[check] (gh-8) includes option '--head' when method is HEAD (case insensitive)" {
+    source_check "stdin-source-method-head-crazycase"
+
+    checkResource
+
+    assert_equal "${expanded_options[0]}" "--head"
+}
