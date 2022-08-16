@@ -35,7 +35,7 @@ source:
 * `text`: _Optional._ Inline text to be sent as the body of the request.  Cannot be specified at the same time as `file`.  Can be overridden as a param to each `get` or `put` step.
 * `data_binary`: _Optional._  Whether to treat the `file` data as binary (rather than plain text).  This has implications on the mode used in the `put` operation _only_.  Can be overridden as a param to each `put` step.  Default is `false`.
 * `build_metadata`: _Optional._  List of component(s) to perform  https://concourse-ci.org/implementing-resource-types.html#resource-metadata[build metadata variable] substitution on.  Can be overridden as a param to each `get` or `put` step.  By default, no substitution is performed on any components.  Valid values include:
-** `headers`: Substitute variables used in the `headers`.
+** `headers`: Substitute any/all variables used in the `headers`.
 +
 [source,yaml]
 ----
@@ -44,7 +44,7 @@ source:
   headers:
     X-Build-Logs: $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
 ----
-** `body`:  Substitute variables in `file` or `text` content.
+** `body`:  Substitute any/all variables used in `file` or `text` content.
 +
 [source,yaml]
 ----
@@ -76,7 +76,7 @@ jobs:
 +
 **Binary content is never attempted**
 +
-Substitution is also _never_ performed on a `body` whose content is flagged as `data_binary` (regardless of what `build_metadata` says).  For example, the `put` below will _not_ attempt token replacements on the body since `data_binary` is `true`.
+Substitution is also _never_ performed on a `body` whose content is flagged as `data_binary` (regardless of what `build_metadata` says).  For example, the `put` below will _not_ attempt token replacements on the body since `data_binary` is `true` (but will still replace any tokens in the `headers`).
 +
 [source,yaml]
 ----
