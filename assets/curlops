@@ -44,7 +44,9 @@ invokeCurl() {
 
   # headers - write them all to our temp file
   jq -r '.source.headers, .params.headers | select(. != null) | to_entries[] | "\(.key): \(.value)"' < $payload > $request_headers
-  replaceBuildMetadataInFile $request_headers
+  if shouldReplaceBuildMetadataInHeaders; then
+    replaceBuildMetadataInFile $request_headers
+  fi
   expanded_headers=("-H" "@${request_headers}")
 
   # data
@@ -56,23 +58,35 @@ invokeCurl() {
     log -p "${red}Only one of source 'file' or 'text' can be set${reset}."
     exit 1
   elif isSet params_file; then
-    replaceBuildMetadataInFile "$params_file"
     if isTrue params_data_binary || (isTrue source_data_binary && notSet params_data_binary); then
       expanded_data+=("--data-binary" "@$params_file")
     else
+      if shouldReplaceBuildMetadataInBody; then
+        replaceBuildMetadataInFile "$params_file"
+      fi
       expanded_data+=("-d" "@$params_file")
     fi
   elif isSet params_text; then
-    expanded_data+=("-d" "$(replaceBuildMetadata "$params_text")")
+    if shouldReplaceBuildMetadataInBody; then
+      expanded_data+=("-d" "$(replaceBuildMetadata "$params_text")")
+    else
+      expanded_data+=("-d" "$params_text")
+    fi
   elif isSet source_file; then
-    replaceBuildMetadataInFile "$source_file"
     if isTrue params_data_binary || (isTrue source_data_binary && notSet params_data_binary); then
       expanded_data+=("--data-binary" "@$source_file")
     else
+      if shouldReplaceBuildMetadataInBody; then
+        replaceBuildMetadataInFile "$source_file"
+      fi
       expanded_data+=("-d" "@$source_file")
     fi
   elif isSet source_text; then
-    expanded_data+=("-d" "$(replaceBuildMetadata "$source_text")")
+    if shouldReplaceBuildMetadataInBody; then
+      expanded_data+=("-d" "$(replaceBuildMetadata "$source_text")")
+    else
+      expanded_data+=("-d" "$source_text")
+    fi
   fi
 
   # other options (auth, ssl, etc)

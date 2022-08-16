@@ -343,3 +343,31 @@ teardown() {
     # includes the http response in the resource's metadata
     assert_equal "$(jq -r '. | any(.metadata[]; .name == "status" and .value == "HTTP/1.1 200 OK")' <<< "$output")" 'true'
 }
+
+@test "[in] (gh-7) build metadata substitution is disabled by default" {
+    source_in "stdin-source"
+
+    refute shouldReplaceBuildMetadataInHeaders
+    refute shouldReplaceBuildMetadataInBody
+}
+
+@test "[in] (gh-7) build metadata substitution is explicitly disabled in params" {
+    source_in "stdin-build-metadata-disabled-in-params"
+
+    refute shouldReplaceBuildMetadataInHeaders
+    refute shouldReplaceBuildMetadataInBody
+}
+
+@test "[in] (gh-7) build metadata substitution is enabled in source" {
+    source_in "stdin-build-metadata-enabled-in-source"
+
+    assert shouldReplaceBuildMetadataInHeaders
+    assert shouldReplaceBuildMetadataInBody
+}
+
+@test "[in] (gh-7) build metadata substitution is enabled in params" {
+    source_in "stdin-build-metadata-enabled-in-params"
+
+    assert shouldReplaceBuildMetadataInHeaders
+    assert shouldReplaceBuildMetadataInBody
+}

@@ -31,11 +31,68 @@ source:
   headers:
     Accept: application/json
 ----
-* `file`: _Optional._ File containing content to be sent as the body of the request.  Cannot be specified at the same time as `text`.  Can be overridden as a parm to each `get` or `put` step.
-* `text`: _Optional._ Inline text to be sent as the body of the request.  Cannot be specified at the same time as `file`.  Can be overridden as a parm to each `get` or `put` step.
+* `file`: _Optional._ File containing content to be sent as the body of the request.  Cannot be specified at the same time as `text`.  Can be overridden as a param to each `get` or `put` step.
+* `text`: _Optional._ Inline text to be sent as the body of the request.  Cannot be specified at the same time as `file`.  Can be overridden as a param to each `get` or `put` step.
+* `data_binary`: _Optional._  Whether to treat the `file` data as binary (rather than plain text).  This has implications on the mode used in the `put` operation _only_.  Can be overridden as a param to each `put` step.  Default is `false`.
+* `build_metadata`: _Optional._  List of component(s) to perform  https://concourse-ci.org/implementing-resource-types.html#resource-metadata[build metadata variable] substitution on.  Can be overridden as a param to each `get` or `put` step.  By default, no substitution is performed on any components.  Valid values include:
+** `headers`: Substitute any/all variables used in the `headers`.
 +
-TIP: Concourse https://concourse-ci.org/implementing-resource-types.html#resource-metadata[build metadata variables] can be used in both `file` and `text` content, and will be automatically substituted in `get` and `put` steps.
-* `data_binary`: _Optional._  Whether to treat the `file` data as binary (rather than plain text).  This has implications on the mode used in the `put` operation _only_.  Can be overridden as a parm to each `put` step.  Default is `false`.
+[source,yaml]
+----
+source:
+  build_metadata: [headers]
+  headers:
+    X-Build-Logs: $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
+----
+** `body`:  Substitute any/all variables used in `file` or `text` content.
++
+[source,yaml]
+----
+source:
+  build_metadata: [body]
+  text: |
+    See build logs at $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME.
+----
+**Overriding in a step**
++
+Configuring the `build_metadata` in a step completely overrides the source config.  For example,
+the pipeline below will perform token replacements on the headers and body (if configured with one) during the `check` and `get`, but on _neither_ during the `put` step.
++
+[source,yaml]
+----
+resources:
+  - name: my-http-resource
+    type: http-resource
+    source:
+      build_metadata: [headers,body]
+
+jobs:
+  - name: post-something
+    plan:
+      - put: my-http-resource
+        params:
+          build_metadata: []
+----
++
+**Binary content is never attempted**
++
+Substitution is also _never_ performed on a `body` whose content is flagged as `data_binary` (regardless of what `build_metadata` says).  For example, the `put` below will _not_ attempt token replacements on the body since `data_binary` is `true` (but will still replace any tokens in the `headers`).
++
+[source,yaml]
+----
+resources:
+  - name: my-http-resource
+    type: http-resource
+    source:
+      build_metadata: [headers,body]
+
+jobs:
+  - name: post-something
+    plan:
+      - put: my-http-resource
+        params:
+          data_binary: true
+----
 
 [#config-source-version]
 * `version`: _Optional_. How to determine the resource's version (see xref:versions[]).  Default is to compute a hash digest of the response body (without the headers).
@@ -109,6 +166,7 @@ General purpose invocation of the `url`, optionally sending a request body.
   plan:
     - put: my-http-resource
       params:
+        build_metadata: [body]
         text: |
           The build had a result. Check it out at:
           $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME

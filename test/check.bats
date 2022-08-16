@@ -347,3 +347,32 @@ teardown() {
 
     assert_equal "${expanded_options[0]}" "--head"
 }
+
+
+@test "[check] (gh-7) build metadata substitution is disabled by default" {
+    source_check "stdin-source"
+
+    refute shouldReplaceBuildMetadataInHeaders
+    refute shouldReplaceBuildMetadataInBody
+}
+
+@test "[check] (gh-7) build metadata substitution is explicitly disabled in params" {
+    source_check "stdin-build-metadata-disabled-in-params"
+
+    refute shouldReplaceBuildMetadataInHeaders
+    refute shouldReplaceBuildMetadataInBody
+}
+
+@test "[check] (gh-7) build metadata substitution is enabled in source" {
+    source_check "stdin-build-metadata-enabled-in-source"
+
+    assert shouldReplaceBuildMetadataInHeaders
+    assert shouldReplaceBuildMetadataInBody
+}
+
+@test "[check] (gh-7) build metadata substitution is enabled in params" {
+    source_check "stdin-build-metadata-enabled-in-params"
+
+    assert shouldReplaceBuildMetadataInHeaders
+    assert shouldReplaceBuildMetadataInBody
+}
